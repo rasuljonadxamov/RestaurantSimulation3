@@ -14,7 +14,6 @@ namespace RestaurantSimulation3
     {
         private Cook cook;
         private Server server;
-        private int customerCount = 0;
 
         public Form1()
         {
@@ -22,9 +21,15 @@ namespace RestaurantSimulation3
             cook = new Cook();
             server = new Server(cook);
 
+            cook.Processed += server.OnProcessed;
+
+            server.Ready += ((object sender, EventArgs e) => { cook.Process(server.GetTableRequests()); });
+
             cmbDrink.Items.Clear();
             cmbDrink.Items.AddRange(new[] { "Tea", "CocaCola", "Pepsi", "NoDrink" });
             cmbDrink.SelectedIndex = 0;
+            eggQuality.ReadOnly = true;
+            eggQuality.Text = "as";
         }
 
         private void btnReceive_Click(object sender, EventArgs e)
@@ -33,25 +38,39 @@ namespace RestaurantSimulation3
             int eg = (int)nudEgg.Value;
 
             string drinkName = cmbDrink.SelectedItem.ToString();
+            string customerName = txtCustomerName.Text;
 
-            server.ReceiveRequest(ch, eg, drinkName);
+            if (string.IsNullOrWhiteSpace(customerName))
+            {
+                MessageBox.Show("Please enter a customer name.");
+                return;
+            }
 
-            customerCount++;
-            MessageBox.Show($"Request received from customer {customerCount - 1}");
+            if (ch == 0 & eg == 0)
+            {
+                MessageBox.Show("Please select at least one item for the order.");
+                return;
+            }
+
+            server.ReceiveRequest(customerName, ch, eg, drinkName);
+
+            MessageBox.Show($"Request received from customer {customerName}");
 
             nudChicken.Value = 0;
             nudEgg.Value = 0;
+            txtCustomerName.Clear();
+            cmbDrink.SelectedIndex = 0;
         }
 
         private void btnSend_Click(object sender, EventArgs e)
         {
             server.SendToCook();
-            MessageBox.Show("All requests sent to Cook and prepared via Order objects.");
+            MessageBox.Show("All requests sent to Cook and prepared. Enjoy with your food😊😊😊");
         }
 
         private void btnServe_Click_1(object sender, EventArgs e)
         {
-            txtResults.Text = server.ServeAndGetResults();
+            txtResults.Text = server.Serve();
         }
 
 

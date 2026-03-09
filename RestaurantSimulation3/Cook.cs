@@ -1,17 +1,20 @@
 ﻿using System;
+using System.Collections.Generic;
 
 public class Cook
 {
+    public event EventHandler Processed;
+
     public void Process(TableRequests table)
     {
-        IMenuItem[] chickens = table[typeof(Chicken)];
+        List<Chicken> chickens = table.Get<Chicken>();
         foreach (Chicken c in chickens)
         {
             c.Obtain();
             c.Cook();
         }
 
-        IMenuItem[] eggs = table[typeof(Egg)];
+        List<Egg> eggs = table.Get<Egg>();
         foreach (Egg e in eggs)
         {
             try
@@ -24,6 +27,8 @@ public class Cook
                 e.Dispose();
             }
         }
+
+        // Raise the Processed event as a lambda expression
+        Processed?.Invoke(this, EventArgs.Empty);
     }
 }
-

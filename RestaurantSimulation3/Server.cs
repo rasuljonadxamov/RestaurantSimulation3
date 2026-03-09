@@ -1,44 +1,63 @@
-﻿public class Server
+﻿using System;
+using System.Collections.Generic;
+
+public class Server
 {
     private TableRequests table = new TableRequests();
-    private int customerIndex = 0;
     private Cook cook;
+
+    public event EventHandler Ready;
 
     public Server(Cook cook) => this.cook = cook;
 
-    public void ReceiveRequest(int chQty, int egQty, string drinkName)
+    public void ReceiveRequest(string customerName, int chQty, int egQty, string drinkName)
     {
-        if (chQty > 0) table.Add(customerIndex, new Chicken(chQty));
-        if (egQty > 0) table.Add(customerIndex, new Egg(egQty));
-        if (drinkName != "NoDrink") table.Add(customerIndex, new Drink(drinkName));
-        customerIndex++;
+        if (chQty > 0) table.Add<Chicken>(customerName, new Chicken(chQty));
+        if (egQty > 0) table.Add<Egg>(customerName, new Egg(egQty));
+        if (drinkName != "NoDrink") table.Add<Drink>(customerName, new Drink(drinkName));
     }
 
-    public void SendToCook() => cook.Process(table);
+    public void SendToCook()
+    {
+        Ready?.Invoke(this, EventArgs.Empty);
+    }
+
+    public TableRequests GetTableRequests()
+    {
+        return table;
+    }
 
     public string Serve()
     {
         string result = "";
-        for (int i = 0; i < customerIndex; i++)
+
+        foreach (var customerName in table.GetCustomerNames())
         {
             int ch = 0, eg = 0;
             string dr = "No Drink";
-            IMenuItem[] items = table[i];
+            int? eggQuality = null;
 
-            foreach (var item in items)
+            var customerItems = table[customerName];
+            foreach (var item in customerItems)
             {
                 if (item is Chicken c) ch += c.Quantity;
-                else if (item is Egg e) eg += e.Quantity;
+                else if (item is Egg e)
+                {
+                    eg += e.Quantity;
+                    if (e.Quality.HasValue)
+                        eggQuality = e.Quality;
+                }
                 else if (item is Drink d) dr = d.ToString();
             }
-            result += $"Customer {i}: {ch} chicken, {eg} egg, {dr}\r\n";
+
+            string eggQualityStr = eggQuality.HasValue ? $", Egg Quality: {eggQuality}" : "";
+            result += $"Customer {customerName}: {ch} chicken, {eg} egg, {dr}{eggQualityStr}\r\n";
         }
         return result;
     }
 
-    public string ServeAndGetResults()
+    public void OnProcessed(object sender, EventArgs e)
     {
-        SendToCook();
-        return Serve();
+        // This is the named method subscriber to Cook's Processed event
     }
 }
