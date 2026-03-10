@@ -1,34 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 public class Cook
 {
-    public event EventHandler Processed;
+    private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(2, 2);
 
-    public void Process(TableRequests table)
+    public async Task PrepareAsync(TableRequests table)
     {
-        List<Chicken> chickens = table.Get<Chicken>();
-        foreach (Chicken c in chickens)
+        await _semaphore.WaitAsync();
+        try
         {
-            c.Obtain();
-            c.Cook();
+            await Task.Run(() =>
+            {
+                Thread.Sleep(1000);
+                PrepareItems(table);
+            });
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private static void PrepareItems(TableRequests table)
+    {
+        foreach (var chicken in table.Get<Chicken>())
+        {
+            chicken.Obtain();
+            chicken.Cook();
         }
 
-        List<Egg> eggs = table.Get<Egg>();
-        foreach (Egg e in eggs)
+        foreach (var egg in table.Get<Egg>())
         {
-            try
+            using (egg)
             {
-                e.Obtain();
-                e.Cook();
-            }
-            finally
-            {
-                e.Dispose();
+                egg.Obtain();
+                egg.Cook();
             }
         }
-
-        // Raise the Processed event as a lambda expression
-        Processed?.Invoke(this, EventArgs.Empty);
     }
 }

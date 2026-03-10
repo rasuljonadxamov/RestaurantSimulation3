@@ -1,63 +1,71 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class Server
 {
-    private TableRequests table = new TableRequests();
-    private Cook cook;
+    private readonly object _lock = new object();
+    private readonly TableRequests _table = new TableRequests();
+    private readonly Cook _cook;
 
-    public event EventHandler Ready;
+    public Server(Cook cook) => _cook = cook;
 
-    public Server(Cook cook) => this.cook = cook;
-
-    public void ReceiveRequest(string customerName, int chQty, int egQty, string drinkName)
+    public int? ReceiveRequest(string customerName, int chickenQty, int eggQty, string drinkName)
     {
-        if (chQty > 0) table.Add<Chicken>(customerName, new Chicken(chQty));
-        if (egQty > 0) table.Add<Egg>(customerName, new Egg(egQty));
-        if (drinkName != "NoDrink") table.Add<Drink>(customerName, new Drink(drinkName));
+        int? eggQuality = null;
+
+        lock (_lock)
+        {
+            if (chickenQty > 0)
+                _table.Add<Chicken>(customerName, new Chicken(chickenQty));
+
+            if (eggQty > 0)
+            {
+                var egg = new Egg(eggQty);
+                eggQuality = egg.Quality;
+                _table.Add<Egg>(customerName, egg);
+            }
+
+            if (drinkName != "NoDrink")
+                _table.Add<Drink>(customerName, new Drink(drinkName));
+        }
+
+        return eggQuality;
     }
 
-    public void SendToCook()
+    public Task SendToCookAsync()
     {
-        Ready?.Invoke(this, EventArgs.Empty);
-    }
+        TableRequests snapshot;
+        lock (_lock) { snapshot = _table; }
 
-    public TableRequests GetTableRequests()
-    {
-        return table;
+        return _cook.PrepareAsync(snapshot).ContinueWith(_ =>
+        {
+            lock (_lock) { Thread.Sleep(300); }
+        });
     }
 
     public string Serve()
     {
-        string result = "";
-
-        foreach (var customerName in table.GetCustomerNames())
+        lock (_lock)
         {
-            int ch = 0, eg = 0;
-            string dr = "No Drink";
-            int? eggQuality = null;
-
-            var customerItems = table[customerName];
-            foreach (var item in customerItems)
-            {
-                if (item is Chicken c) ch += c.Quantity;
-                else if (item is Egg e)
-                {
-                    eg += e.Quantity;
-                    if (e.Quality.HasValue)
-                        eggQuality = e.Quality;
-                }
-                else if (item is Drink d) dr = d.ToString();
-            }
-
-            string eggQualityStr = eggQuality.HasValue ? $", Egg Quality: {eggQuality}" : "";
-            result += $"Customer {customerName}: {ch} chicken, {eg} egg, {dr}{eggQualityStr}\r\n";
+            return string.Join("\r\n",
+                _table.GetCustomerNames()
+                      .OrderBy(name => name)
+                      .Select(BuildSummary));
         }
-        return result;
     }
 
-    public void OnProcessed(object sender, EventArgs e)
+    private string BuildSummary(string customerName)
     {
-        // This is the named method subscriber to Cook's Processed event
+        int chicken = 0, eggs = 0, drinks = 0;
+
+        foreach (var item in _table[customerName])
+        {
+            if      (item is Chicken c) chicken += c.Quantity;
+            else if (item is Egg e)     eggs    += e.Quantity;
+            else if (item is Drink)     drinks++;
+        }
+
+        return $"{customerName} ordered {drinks} drink, {eggs} egg and {chicken} chicken";
     }
 }

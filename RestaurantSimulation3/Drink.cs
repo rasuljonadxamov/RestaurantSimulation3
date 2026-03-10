@@ -1,8 +1,11 @@
 ﻿public class Drink : MenuItem
 {
-    private string name;
-    public Drink(string name) : base(1) { this.name = name; }
-    public override string ToString() => name;
+    private readonly string _name;
+
+    public Drink(string name) : base(1) => _name = name;
+
     public override void Obtain() { }
     public override void Serve() { }
+
+    public override string ToString() => _name;
 }

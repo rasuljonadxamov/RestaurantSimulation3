@@ -1,37 +1,29 @@
 ﻿using System;
 
-public class Egg : CookedFood, IDisposable {
-    private int? quality;
-    private static Random rand = new Random();
-    private static int instanceCount = 0;
+public class Egg : CookedFood, IDisposable
+{
+    private static readonly Random _rand = new Random();
 
-    public Egg(int quantity) : base(quantity) {
-        instanceCount ++;
-        if (instanceCount % 2 == 0) quality = null;
-        else quality = rand.Next(50, 101);
+    public int Quality { get; } = _rand.Next(50, 101);
+
+    public Egg(int quantity) : base(quantity) { }
+
+    public override void Obtain() { }
+    public override void Serve() { }
+
+    public override void Cook()
+    {
+        for (int i = 0; i < Quantity; i++)
+            Crack();
     }
 
-    public int? Quality => quality;
+    public void Dispose() => DiscardShells();
 
-    public override void Obtain() {
+    private void Crack()
+    {
+        if (Quality < 50)
+            throw new InvalidOperationException("Rotten egg!");
     }
 
-    public void Crack() {
-        if (quality.HasValue && quality < 50) throw new Exception("Rotten egg!");
-    }
-
-    public override void Cook() {
-        for (int i = 0; i < Quantity; i++) Crack();
-    }
-
-    public override void Serve() {
-    }
-
-    public void Dispose() {
-        DiscardShells();
-    }
-
-    private void DiscardShells() {
-        Console.WriteLine("DiscardShells");
-    }
+    private void DiscardShells() { }
 }
